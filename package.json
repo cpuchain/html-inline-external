@@ -1,5 +1,5 @@
 {
-  "name": "html-inline-external",
+  "name": "@cpuchain/html-inline-external",
   "bin": {
     "html-inline-external": "./lib/cli.js"
   },

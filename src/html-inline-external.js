@@ -19,6 +19,10 @@ const getFile = (src) => readFile(resolvePath(src));
 const getFileString = (src, format) => getFile(src)
   .then((buffer) => Promise.resolve(buffer.toString(format)));
 
+const getFetchString = async (src) => {
+  return await (await fetch(src)).text();
+}
+
 const base64Map = {
   svg: 'image/svg+xml',
   png: 'image/png',
@@ -45,7 +49,10 @@ const resolveImageToBase64 = ({ element, srcAttributeName = 'src' }) => {
 
 const resolveExternalScript = ({ element }) => {
   if (!element.getAttribute('src')) return Promise.resolve();
-  if (containsIgnoreSourceStartingWith(element.getAttribute('src'))) return Promise.resolve();
+  if (containsIgnoreSourceStartingWith(element.getAttribute('src'))) return getFetchString(element.getAttribute('src')).then((file) => {
+    element.innerHTML = file;
+    element.removeAttribute('src');
+  });
   return getFileString(resolveDirPath(element.getAttribute('src'))).then((file) => {
     element.innerHTML = file;
     element.removeAttribute('src');
@@ -63,7 +70,11 @@ const resolveExternalStyleSheet = ({ element }) => {
   const { parentElement } = element;
 
   if (!href) return Promise.resolve();
-  if (containsIgnoreSourceStartingWith(element.getAttribute('href'))) return Promise.resolve();
+  if (containsIgnoreSourceStartingWith(element.getAttribute('href'))) return getFetchString(element.getAttribute('href')).then((file) => {
+    const style = document.createElement('style');
+    style.innerHTML = file;
+    parentElement.replaceChild(style, element);
+  });
 
   return getFileString(resolveDirPath(href)).then((file) => {
     const style = document.createElement('style');
