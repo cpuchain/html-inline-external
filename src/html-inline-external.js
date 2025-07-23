@@ -3,9 +3,12 @@ const jsdom = require('jsdom');
 const path = require('path');
 const htmlMinifier = require('html-minifier');
 const prettify = require('pretty');
+const { webcrypto } = require('crypto');
 
 const { readFile } = fsPromises;
 const { JSDOM } = jsdom;
+
+const textDecoder = new TextDecoder();
 
 let srcDir = '';
 let document;
@@ -18,6 +21,30 @@ const getFile = (src) => readFile(resolvePath(src));
 
 const getFileString = (src, format) => getFile(src)
   .then((buffer) => Promise.resolve(buffer.toString(format)));
+
+const bytesToBase64 = (bytes) => btoa(bytes.reduce((data, byte) => data + String.fromCharCode(byte), ''));
+
+const getFetchString = async (src, integrity) => {
+  const resp = await fetch(src);
+
+  if (!resp.ok) {
+    throw new Error(resp.statusText);
+  }
+
+  const buffer = new Uint8Array(await resp.arrayBuffer());
+
+  if (integrity) {
+    const hash = `sha384-${bytesToBase64(new Uint8Array(await webcrypto.subtle.digest('SHA-384', buffer)))}`;
+
+    if (integrity !== hash) {
+      throw new Error(`${integrity} mismatch with ${hash}`);
+    }
+
+    console.log(`[Log] verified ${hash} : ${src}`);
+  }
+
+  return textDecoder.decode(buffer);
+};
 
 const base64Map = {
   svg: 'image/svg+xml',
@@ -43,13 +70,26 @@ const resolveImageToBase64 = ({ element, srcAttributeName = 'src' }) => {
   });
 };
 
-const resolveExternalScript = ({ element }) => {
-  if (!element.getAttribute('src')) return Promise.resolve();
-  if (containsIgnoreSourceStartingWith(element.getAttribute('src'))) return Promise.resolve();
-  return getFileString(resolveDirPath(element.getAttribute('src'))).then((file) => {
+const resolveExternalScript = async ({ element }) => {
+  const srcAttr = element.getAttribute('src');
+
+  if (!srcAttr) {
+    return;
+  }
+
+  if (containsIgnoreSourceStartingWith(srcAttr)) {
+    const file = await getFetchString(srcAttr, element.getAttribute('integrity'));
+
     element.innerHTML = file;
     element.removeAttribute('src');
-  });
+
+    return;
+  }
+
+  const file = await getFileString(resolveDirPath(srcAttr));
+
+  element.innerHTML = file;
+  element.removeAttribute('src');
 };
 
 const resolveExternalIcon = async ({ element }) => {
@@ -63,7 +103,13 @@ const resolveExternalStyleSheet = ({ element }) => {
   const { parentElement } = element;
 
   if (!href) return Promise.resolve();
-  if (containsIgnoreSourceStartingWith(element.getAttribute('href'))) return Promise.resolve();
+  if (containsIgnoreSourceStartingWith(element.getAttribute('href'))) {
+    return getFetchString(element.getAttribute('href')).then((file) => {
+      const style = document.createElement('style');
+      style.innerHTML = file;
+      parentElement.replaceChild(style, element);
+    });
+  }
 
   return getFileString(resolveDirPath(href)).then((file) => {
     const style = document.createElement('style');

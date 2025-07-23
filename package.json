@@ -1,12 +1,12 @@
 {
-  "name": "html-inline-external",
+  "name": "@cpuchain/html-inline-external",
   "bin": {
     "html-inline-external": "./lib/cli.js"
   },
   "files": [
     "lib/**"
   ],
-  "version": "1.0.10",
+  "version": "1.0.13",
   "description": "Helps include/inline external Script/CSS/Images and compiles into a Single HTML page.",
   "main": "lib/html-inline-external.js",
   "repository": "https://github.com/okrohan/html-inline-external.git",
@@ -14,7 +14,7 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "lint": "eslint src/*.js --fix",
+    "lint": "eslint src/*.js",
     "minify": "minify ./src/html-inline-external.js ./src/cli.js --out-dir ./lib --mangle"
   },
   "dependencies": {
